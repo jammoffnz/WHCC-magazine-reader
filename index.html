@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WHZ — Wellington Hills Zines</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300..900;1,300..900&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle light/dark theme">
+    <span class="theme-toggle-icon" aria-hidden="true">☀</span>
+  </button>
+
+  <!-- ============ SHELF VIEW ============ -->
+  <main id="shelf-view" class="view">
+    <header class="shelf-header">
+      <div class="site-logo" title="Wellington Hills Zines">
+        <span class="site-logo-mark">Z</span>
+      </div>
+      <p class="eyebrow">WHZ</p>
+      <h1 id="shelf-heading">Pick something off the shelf</h1>
+    </header>
+    <div class="shelf-controls">
+      <input
+        id="search-input"
+        class="search-input"
+        type="search"
+        placeholder="Search zines…"
+        aria-label="Search magazines"
+      >
+      <div class="topic-dropdown" id="topic-dropdown" hidden>
+        <button
+          type="button"
+          id="topic-dropdown-toggle"
+          class="topic-dropdown-toggle"
+          aria-haspopup="dialog"
+          aria-expanded="false"
+        >
+          <span id="topic-dropdown-label">Filter zines</span>
+          <span class="dropdown-chevron" aria-hidden="true">▾</span>
+        </button>
+        <div id="topic-dropdown-panel" class="topic-dropdown-panel" role="dialog" aria-label="Filter zines" hidden></div>
+      </div>
+    </div>
+    <div id="shelf-grid" class="shelf-grid"></div>
+    <footer class="shelf-footer">
+      <a
+        class="contact-link"
+        href="mailto:jamesm@whcc.school.nz?subject=WHZ"
+      >Contact</a>
+    </footer>
+  </main>
+
+  <!-- ============ READER VIEW ============ -->
+  <section id="reader-view" class="view" hidden>
+    <header class="reader-header">
+      <button id="back-btn" class="text-btn" type="button">&larr; Shelf</button>
+      <div class="reader-title">
+        <span id="reader-title-main"></span>
+        <span id="reader-title-issue" class="reader-title-issue"></span>
+      </div>
+      <div id="reader-progress" class="reader-progress"></div>
+    </header>
+
+    <div id="book" class="book" aria-live="polite">
+      <div class="spread" id="spread">
+        <div class="page page-left" id="page-left"><img id="img-left" alt=""></div>
+        <div class="page page-right" id="page-right"><img id="img-right" alt=""></div>
+        <div class="gutter-shadow" aria-hidden="true"></div>
+      </div>
+
+      <button id="zone-prev" class="click-zone zone-prev" type="button" aria-label="Previous page">
+        <span class="chevron">&#10094;</span>
+      </button>
+      <button id="zone-next" class="click-zone zone-next" type="button" aria-label="Next page">
+        <span class="chevron">&#10095;</span>
+      </button>
+    </div>
+
+    <footer class="reader-footer">
+      <div id="dots" class="dots"></div>
+    </footer>
+  </section>
+
+  <script src="js/magazines.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
