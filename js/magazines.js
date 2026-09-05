@@ -51,7 +51,7 @@ const MAGAZINE_FILTERS = [
       "I love apples"
     ]
   },
-  { key: "ageRange", label: "Age range", values: ["under 13", "teen", "parent", "all ages", "adult"] },
+  { key: "ageRange", label: "Age range", values: ["under 13", "teen", "parent", "all ages"] },
   {
     key: "purpose",
     label: "Purpose",
