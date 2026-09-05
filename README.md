@@ -143,21 +143,42 @@ topic, `meta.json` also accepts a `topics` array: `{ "topics":
 
 ### Three-column filters
 
-The filter menu has Publisher, Age range, and Purpose columns. Add
-these fields to a magazine's `meta.json` to include an automatically
-discovered magazine in those filters:
+The filter menu is configured by the `MAGAZINE_FILTERS` array at the
+top of `js/magazines.js`. Each object creates one filter column:
+
+```js
+{
+  key: "format",
+  label: "Format",
+  values: ["print", "digital"]
+}
+```
+
+To add a new category:
+
+1. Add an object to `MAGAZINE_FILTERS` with a unique `key`, the label
+   shown above the column, and optional starter `values`.
+2. Add that same field to magazine entries in `js/magazines.js` or to
+   a magazine's `meta.json`.
+3. Add every selectable value to the category's `values` array.
+4. Refresh the site.
+
+For example, add `"format": "digital"` to `meta.json`:
 
 ```json
 {
   "publisher": "student",
   "ageRange": "teen",
-  "purpose": "newsletter"
+  "purpose": "newsletter",
+  "format": "digital"
 }
 ```
 
-The built-in choices are publisher: `student`, `lunch group`, or
-`organisation`; age range: `under 13`, `teen`, or `parent`; and
-purpose: `photo album`, `article`, or `newsletter`.
+The existing categories are Publisher, Age range, and Purpose. Filter
+categories and values are fully controlled by `MAGAZINE_FILTERS`; adding
+a value to a magazine alone will not create a new filter option. The
+filter panel stays compact and each column scrolls independently when
+it has more options than will fit.
 
 ## How auto-detection works
 

@@ -36,6 +36,9 @@
   const spreadEl = document.getElementById("spread");
   const imgLeft = document.getElementById("img-left");
   const imgRight = document.getElementById("img-right");
+  const turnSheet = document.getElementById("turn-sheet");
+  const turnFrontImg = document.getElementById("turn-front-img");
+  const turnBackImg = document.getElementById("turn-back-img");
   const zonePrev = document.getElementById("zone-prev");
   const zoneNext = document.getElementById("zone-next");
   const dotsEl = document.getElementById("dots");
@@ -47,13 +50,54 @@
   let spreads = [];
   let spreadIndex = 0;
   let isAnimating = false;
+  const preloadedPages = new Map();
 
-  const TURN_MS = 320; // must match .spread transition duration in style.css
+  const TURN_MS = 720; // must match .turn-sheet transition duration in style.css
+  const COVER_TURN_MS = 520; // must match .spread cover-change animation duration in style.css
+  const NEW_MAGAZINE_WINDOW_MS = 5 * 24 * 60 * 60 * 1000;
 
   /* ---------- helpers ---------- */
 
   function pagePath(mag, pageNum) {
     return `${mag.folder}/page-${pageNum}.${mag.extension}`;
+  }
+
+  function preloadPage(pageNum) {
+    const src = pagePath(currentMagazine, pageNum);
+    if (preloadedPages.has(src)) return preloadedPages.get(src);
+
+    const loaded = new Promise((resolve) => {
+      const image = new Image();
+      image.onload = () => {
+        // Decoding before the turn avoids a blank page appearing mid-animation.
+        if (typeof image.decode === "function") image.decode().catch(() => {}).then(resolve);
+        else resolve();
+      };
+      image.onerror = resolve;
+      image.src = src;
+      if (image.complete) resolve();
+    });
+    preloadedPages.set(src, loaded);
+    return loaded;
+  }
+
+  function preloadSpread(index) {
+    const spread = spreads[index];
+    return spread ? Promise.all(spread.pages.map(preloadPage)) : Promise.resolve();
+  }
+
+  async function loadIntoPage(image, pageNum) {
+    const src = pagePath(currentMagazine, pageNum);
+    if (image.getAttribute("src") !== src) {
+      image.src = src;
+    }
+    if (!image.complete) {
+      await new Promise((resolve) => {
+        image.addEventListener("load", resolve, { once: true });
+        image.addEventListener("error", resolve, { once: true });
+      });
+    }
+    if (typeof image.decode === "function") await image.decode().catch(() => {});
   }
 
   function titleCase(str) {
@@ -67,6 +111,16 @@
   // "1" -> "Topic 1", "travel" -> "Travel"
   function topicLabel(slug) {
     return /^\d+$/.test(slug) ? `Topic ${slug}` : titleCase(slug);
+  }
+
+  function isNewMagazine(mag) {
+    if (!mag.dateAdded) return false;
+
+    const addedAt = new Date(`${mag.dateAdded}T00:00:00`);
+    if (Number.isNaN(addedAt.getTime())) return false;
+
+    const age = Date.now() - addedAt.getTime();
+    return age >= 0 && age <= NEW_MAGAZINE_WINDOW_MS;
   }
 
   // Build the sequence of spreads for a magazine: page 1 is a standalone
@@ -121,19 +175,11 @@
 
   /* ---------- category filters ---------- */
 
-  const FILTERS = [
-    { key: "publisher", label: "Publisher", values: ["student", "lunch group", "organisation"] },
-    { key: "ageRange", label: "Age range", values: ["under 13", "teen", "parent"] },
-    { key: "purpose", label: "Purpose", values: ["photo album", "article", "newsletter"] }
-  ];
+  const FILTERS =
+    typeof MAGAZINE_FILTERS !== "undefined" && Array.isArray(MAGAZINE_FILTERS) ? MAGAZINE_FILTERS : [];
 
-  function filterValues(library, filter) {
-    const values = new Set(filter.values);
-    library.forEach((mag) => {
-      const value = mag[filter.key];
-      (Array.isArray(value) ? value : [value]).filter(Boolean).forEach((item) => values.add(String(item)));
-    });
-    return [...values].sort((a, b) => a.localeCompare(b));
+  function filterValues(filter) {
+    return [...filter.values].sort((a, b) => a.localeCompare(b));
   }
 
   function magazineMatchesFilter(mag, key, value) {
@@ -171,7 +217,7 @@
       heading.textContent = filter.label;
       column.appendChild(heading);
       column.appendChild(makeOption(filter, `All ${filter.label.toLowerCase()}`, "all"));
-      filterValues(LIBRARY, filter).forEach((value) => column.appendChild(makeOption(filter, titleCase(value), value)));
+      filterValues(filter).forEach((value) => column.appendChild(makeOption(filter, titleCase(value), value)));
       columns.appendChild(column);
     });
     topicDropdownPanel.appendChild(columns);
@@ -247,6 +293,13 @@
       img.src = pagePath(mag, 1);
       img.alt = `${mag.title} cover`;
       thumb.appendChild(img);
+      if (isNewMagazine(mag)) {
+       const badge = document.createElement("span");
+       badge.className = "new-badge";
+       badge.textContent = "New";
+       badge.setAttribute("aria-label", "Published within the past 5 days");
+       thumb.appendChild(badge);
+      }
 
       const caption = document.createElement("div");
       caption.className = "cover-caption";
@@ -338,24 +391,113 @@
     updateDots();
     zonePrev.disabled = spreadIndex === 0;
     zoneNext.disabled = spreadIndex === spreads.length - 1;
+
+    // Keep two spreads ahead (and behind) in the browser cache. The second
+    // look-ahead means pages not used by the *next* turn are ready too.
+    preloadSpread(spreadIndex - 1);
+    preloadSpread(spreadIndex + 1);
+    preloadSpread(spreadIndex - 2);
+    preloadSpread(spreadIndex + 2);
   }
 
-  function turn(direction) {
+  function canUsePageTurn(direction, nextIndex) {
+    const current = spreads[spreadIndex];
+    const next = spreads[nextIndex];
+    return current.type === "pair" && next.type === "pair" && direction !== 0;
+  }
+
+  function preparePageTurn(direction, nextIndex) {
+    const current = spreads[spreadIndex];
+    const next = spreads[nextIndex];
+    const isForward = direction > 0;
+
+    // Moving forward turns the current right page to the left. Moving back
+    // turns the current left page to the right. The second image is the page
+    // revealed on the reverse side of that sheet.
+    const frontPage = isForward ? current.pages[1] : current.pages[0];
+    const backPage = isForward ? next.pages[0] : next.pages[1];
+    turnFrontImg.src = pagePath(currentMagazine, frontPage);
+    turnBackImg.src = pagePath(currentMagazine, backPage);
+    turnSheet.className = `turn-sheet ${isForward ? "turn-next" : "turn-prev"}`;
+    turnSheet.hidden = false;
+
+  }
+
+  function startPageTurn() {
+    // Give the browser one frame to paint the page in its starting position
+    // before applying its rotated state.
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => turnSheet.classList.add("is-flipping"));
+    });
+  }
+
+  async function stageIncomingPage(direction, nextIndex) {
+    const next = spreads[nextIndex];
+    // This page stays underneath the turning sheet. Loading it into the real
+    // reader element before the animation starts prevents a late image paint
+    // after the sheet has finished turning.
+    const image = direction > 0 ? imgRight : imgLeft;
+    const pageNum = direction > 0 ? next.pages[1] : next.pages[0];
+    await loadIntoPage(image, pageNum);
+  }
+
+  async function stageTurnSheet(direction, nextIndex) {
+    const current = spreads[spreadIndex];
+    const next = spreads[nextIndex];
+    const frontPage = direction > 0 ? current.pages[1] : current.pages[0];
+    const backPage = direction > 0 ? next.pages[0] : next.pages[1];
+    await Promise.all([
+      loadIntoPage(turnFrontImg, frontPage),
+      loadIntoPage(turnBackImg, backPage)
+    ]);
+  }
+
+  function clearPageTurn() {
+    turnSheet.className = "turn-sheet";
+    turnSheet.hidden = true;
+    turnFrontImg.removeAttribute("src");
+    turnBackImg.removeAttribute("src");
+  }
+
+  async function turn(direction) {
     if (isAnimating) return;
     const nextIndex = spreadIndex + direction;
     if (nextIndex < 0 || nextIndex >= spreads.length) return;
 
     isAnimating = true;
-    spreadEl.classList.add(direction > 0 ? "turning-next" : "turning-prev");
+    await preloadSpread(nextIndex);
+    if (canUsePageTurn(direction, nextIndex)) {
+      // Put the sheet in place first so staging the destination page cannot
+      // flash over the page currently being read.
+      preparePageTurn(direction, nextIndex);
+      await Promise.all([
+        stageIncomingPage(direction, nextIndex),
+        stageTurnSheet(direction, nextIndex)
+      ]);
+      startPageTurn();
+      window.setTimeout(() => {
+        spreadIndex = nextIndex;
+        renderSpread();
+        clearPageTurn();
+        isAnimating = false;
+      }, TURN_MS);
+      return;
+    }
+
+    const directionClass = direction > 0 ? "turning-next" : "turning-prev";
+    spreadEl.classList.add(directionClass, "turning-cover");
 
     window.setTimeout(() => {
       spreadIndex = nextIndex;
       renderSpread();
-      spreadEl.classList.remove("turning-next", "turning-prev");
+    }, COVER_TURN_MS * 0.5);
+
+    window.setTimeout(() => {
+      spreadEl.classList.remove(directionClass, "turning-cover");
       window.setTimeout(() => {
         isAnimating = false;
-      }, TURN_MS);
-    }, TURN_MS * 0.5);
+      }, 0);
+    }, COVER_TURN_MS);
   }
 
   /* ---------- events ---------- */

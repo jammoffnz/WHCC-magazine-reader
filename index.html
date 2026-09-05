@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300..900;1,300..900&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
+<body style="background-color: #1d1b16;">
 
   <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle light/dark theme">
     <span class="theme-toggle-icon" aria-hidden="true">☀</span>
@@ -70,7 +70,10 @@
       <div class="spread" id="spread">
         <div class="page page-left" id="page-left"><img id="img-left" alt=""></div>
         <div class="page page-right" id="page-right"><img id="img-right" alt=""></div>
-        <div class="gutter-shadow" aria-hidden="true"></div>
+        <div id="turn-sheet" class="turn-sheet" aria-hidden="true" hidden>
+          <div class="turn-face turn-face-front"><img id="turn-front-img" alt=""></div>
+          <div class="turn-face turn-face-back"><img id="turn-back-img" alt=""></div>
+        </div>
       </div>
 
       <button id="zone-prev" class="click-zone zone-prev" type="button" aria-label="Previous page">
