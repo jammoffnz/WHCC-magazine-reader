@@ -47,8 +47,7 @@ const MAGAZINE_FILTERS = [
       "North Star Studio",
       "Cedar Street Zines",
       "Lantern Room",
-      "WHZ group",
-      "I love apples"
+      "WHZ group"
     ]
   },
   { key: "ageRange", label: "Age range", values: ["under 13", "teen", "parent", "all ages"] },
@@ -78,6 +77,7 @@ const MAGAZINE_LIBRARY = [
     title: "Field Notes",
     issue: "Issue 01 — Autumn",
     dateAdded: "2026-01-01",
+    editorsPick: false,
     folder: "magazines/field-notes-01/pages",
     pageCount: 8,
     extension: "png",
@@ -91,6 +91,7 @@ const MAGAZINE_LIBRARY = [
     title: "Test mag by james",
     issue: "Issue 01 — testing 123",
     dateAdded: "2026-09-05",
+    editorsPick: true,
     folder: "magazines/this-isnt-ai/pages",
     pageCount: 6,
     extension: "png",

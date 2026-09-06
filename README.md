@@ -109,6 +109,19 @@ magazines/spring-03/pages/page-1.jpg
 { "title": "Field Notes", "issue": "Issue 03 — Spring" }
 ```
 
+To mark a manually configured magazine as an Editor's Pick, add
+`editorsPick: true` to its entry in `js/magazines.js`:
+
+```js
+{
+  id: "spring-03",
+  title: "Field Notes",
+  editorsPick: true
+}
+```
+
+Set it to `false` (or remove it) to hide the badge.
+
 ### Topics and the shelf filter
 
 To make a magazine show up under a topic filter, add an empty file
@@ -221,3 +234,17 @@ themselves.
 Colors, fonts, and spacing are defined as CSS custom properties at
 the top of `css/style.css` (`--paper`, `--ink`, `--accent`, `--gold`,
 `--room`, etc.) — change those to re-theme the whole site.
+
+## Reader features
+
+- Use **Bookmark** in the reader header to save magazines in browser
+  local storage.
+- Reading position is saved automatically and restored when you reopen
+  a magazine in the same browser.
+- The reader URL includes the magazine ID after `#`, so you can copy
+  the **Copy link** button's URL to share a specific magazine.
+- On touch devices, swipe left or right across the reader to turn pages.
+- The shelf can show only bookmarked zines with **Bookmarked**. Bookmark
+  data stays in this browser.
+- Finished magazines show a **Read** label so you can see which magazines
+  you have completed.

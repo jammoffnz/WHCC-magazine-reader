@@ -27,12 +27,19 @@
   const topicDropdownLabel = document.getElementById("topic-dropdown-label");
   const topicDropdownPanel = document.getElementById("topic-dropdown-panel");
   const searchInput = document.getElementById("search-input");
+  const sortSelect = document.getElementById("sort-select");
+  const bookmarksFilter = document.getElementById("bookmarks-filter");
   const themeToggle = document.getElementById("theme-toggle");
   const readerView = document.getElementById("reader-view");
   const backBtn = document.getElementById("back-btn");
   const titleMain = document.getElementById("reader-title-main");
   const titleIssue = document.getElementById("reader-title-issue");
   const progressEl = document.getElementById("reader-progress");
+  const progressBar = document.getElementById("reader-progress-bar");
+  const bookmarkBtn = document.getElementById("bookmark-btn");
+  const shareBtn = document.getElementById("share-btn");
+  const readStatusBtn = document.getElementById("read-status-btn");
+  const book = document.getElementById("book");
   const spreadEl = document.getElementById("spread");
   const imgLeft = document.getElementById("img-left");
   const imgRight = document.getElementById("img-right");
@@ -44,17 +51,59 @@
   const dotsEl = document.getElementById("dots");
 
   let LIBRARY = [];
-  let activeFilters = { publisher: "all", ageRange: "all", purpose: "all" };
+  let activeFilters;
+  let sortOrder = "latest";
+  let showBookmarkedOnly = false;
   let searchQuery = "";
   let currentMagazine = null;
   let spreads = [];
   let spreadIndex = 0;
   let isAnimating = false;
+  let touchStartX = null;
   const preloadedPages = new Map();
 
   const TURN_MS = 720; // must match .turn-sheet transition duration in style.css
   const COVER_TURN_MS = 520; // must match .spread cover-change animation duration in style.css
   const NEW_MAGAZINE_WINDOW_MS = 5 * 24 * 60 * 60 * 1000;
+  const BOOKMARKS_KEY = "whz-bookmarks";
+  const PROGRESS_KEY = "whz-reading-progress";
+  const READ_STATUS_KEY = "whz-read-status";
+
+  function readStorage(key, fallback) {
+    try {
+      const value = JSON.parse(localStorage.getItem(key));
+      return value ?? fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
+  function writeStorage(key, value) {
+    localStorage.setItem(key, JSON.stringify(value));
+  }
+
+  function isBookmarked(id) {
+    return readStorage(BOOKMARKS_KEY, []).includes(id);
+  }
+  function isRead(id) {
+    return readStorage(READ_STATUS_KEY, []).includes(id);
+  }
+
+  function updateReadStatusButton() {
+    const read = isRead(currentMagazine.id);
+    readStatusBtn.hidden = !read;
+    readStatusBtn.textContent = read ? "Mark as unread" : "Mark as read";
+  }
+
+  function updateBookmarkButton() {
+    const bookmarked = isBookmarked(currentMagazine.id);
+    bookmarkBtn.textContent = bookmarked ? "★ Bookmarked" : "☆ Bookmark";
+    bookmarkBtn.setAttribute("aria-pressed", String(bookmarked));
+  }
+
+  function updateUrl(id) {
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#${id}`);
+  }
 
   /* ---------- helpers ---------- */
 
@@ -68,11 +117,7 @@
 
     const loaded = new Promise((resolve) => {
       const image = new Image();
-      image.onload = () => {
-        // Decoding before the turn avoids a blank page appearing mid-animation.
-        if (typeof image.decode === "function") image.decode().catch(() => {}).then(resolve);
-        else resolve();
-      };
+      image.onload = resolve;
       image.onerror = resolve;
       image.src = src;
       if (image.complete) resolve();
@@ -97,7 +142,6 @@
         image.addEventListener("error", resolve, { once: true });
       });
     }
-    if (typeof image.decode === "function") await image.decode().catch(() => {});
   }
 
   function titleCase(str) {
@@ -177,6 +221,7 @@
 
   const FILTERS =
     typeof MAGAZINE_FILTERS !== "undefined" && Array.isArray(MAGAZINE_FILTERS) ? MAGAZINE_FILTERS : [];
+  activeFilters = Object.fromEntries(FILTERS.map((filter) => [filter.key, "all"]));
 
   function filterValues(filter) {
     return [...filter.values].sort((a, b) => a.localeCompare(b));
@@ -231,7 +276,7 @@
       clear.textContent = "Clear filters";
       clear.addEventListener("click", (event) => {
         event.stopPropagation();
-        activeFilters = { publisher: "all", ageRange: "all", purpose: "all" };
+        activeFilters = Object.fromEntries(FILTERS.map((item) => [item.key, "all"]));
         renderTopicFilters();
         renderShelf();
       });
@@ -264,7 +309,17 @@
         !query ||
         m.title.toLowerCase().includes(query) ||
         (m.issue || "").toLowerCase().includes(query);
-      return matchesFilters && matchesSearch;
+      return matchesFilters && matchesSearch && (!showBookmarkedOnly || isBookmarked(m.id));
+    });
+    visible.sort((a, b) => {
+      const readDifference = Number(isRead(a.id)) - Number(isRead(b.id));
+      if (readDifference !== 0) return readDifference;
+      if (sortOrder === "alphabetical") return a.title.localeCompare(b.title);
+      const aDate = Date.parse(a.dateAdded || "");
+      const bDate = Date.parse(b.dateAdded || "");
+      const aTime = Number.isNaN(aDate) ? 0 : aDate;
+      const bTime = Number.isNaN(bDate) ? 0 : bDate;
+      return sortOrder === "latest" ? bTime - aTime : aTime - bTime;
     });
 
     if (visible.length === 0) {
@@ -282,6 +337,7 @@
       const card = document.createElement("button");
       card.type = "button";
       card.className = "cover-card";
+      card.classList.toggle("is-read", isRead(mag.id));
       // Random tilt each render, so covers don't fall into a visible pattern.
       const tilt = (Math.random() * 5 - 2.5).toFixed(2);
       card.style.setProperty("--tilt", `${tilt}deg`);
@@ -292,14 +348,32 @@
       const img = document.createElement("img");
       img.src = pagePath(mag, 1);
       img.alt = `${mag.title} cover`;
+      img.addEventListener("error", () => {
+        img.remove();
+        const fallback = document.createElement("span");
+        fallback.className = "cover-fallback";
+        fallback.textContent = "Cover unavailable";
+        fallback.setAttribute("aria-label", `${mag.title} cover unavailable`);
+        thumb.appendChild(fallback);
+      }, { once: true });
       thumb.appendChild(img);
+      const badges = document.createElement("div");
+      badges.className = "cover-badges";
+      if (mag.editorsPick === true) {
+       const badge = document.createElement("span");
+       badge.className = "editors-pick-badge";
+       badge.textContent = "Editor's pick";
+       badge.setAttribute("aria-label", "Editor's pick");
+       badges.appendChild(badge);
+      }
       if (isNewMagazine(mag)) {
        const badge = document.createElement("span");
        badge.className = "new-badge";
        badge.textContent = "New";
        badge.setAttribute("aria-label", "Published within the past 5 days");
-       thumb.appendChild(badge);
+       badges.appendChild(badge);
       }
+      if (badges.childElementCount) thumb.appendChild(badges);
 
       const caption = document.createElement("div");
       caption.className = "cover-caption";
@@ -309,6 +383,18 @@
         ? `${mag.issue} · ${mag.pageCount} pages`
         : `${mag.pageCount} pages`;
       caption.appendChild(small);
+      if (isBookmarked(mag.id)) {
+        const saved = document.createElement("small");
+        saved.className = "bookmark-label";
+        saved.textContent = "Bookmarked";
+        caption.appendChild(saved);
+      }
+      if (isRead(mag.id)) {
+        const read = document.createElement("small");
+        read.className = "read-label";
+        read.textContent = "Read";
+        caption.appendChild(read);
+      }
 
       card.appendChild(thumb);
       card.appendChild(caption);
@@ -324,10 +410,14 @@
 
     currentMagazine = mag;
     spreads = buildSpreads(mag.pageCount);
-    spreadIndex = 0;
+    const savedProgress = readStorage(PROGRESS_KEY, {})[id];
+    spreadIndex = Number.isInteger(savedProgress) && savedProgress >= 0 && savedProgress < spreads.length ? savedProgress : 0;
 
     titleMain.textContent = mag.title;
     titleIssue.textContent = mag.issue;
+    updateBookmarkButton();
+    updateReadStatusButton();
+    updateUrl(id);
 
     renderDots();
     renderSpread();
@@ -340,6 +430,7 @@
     readerView.hidden = true;
     shelfView.hidden = false;
     currentMagazine = null;
+    window.history.replaceState(null, "", window.location.pathname + window.location.search);
   }
 
   function renderDots() {
@@ -369,6 +460,16 @@
       label = `${s.pages[0]}–${s.pages[1]} of ${total}`;
     }
     progressEl.textContent = label;
+    const percent = spreads.length <= 1 ? 100 : Math.round((spreadIndex / (spreads.length - 1)) * 100);
+    progressBar.style.width = `${percent}%`;
+    const progress = readStorage(PROGRESS_KEY, {});
+    progress[currentMagazine.id] = spreadIndex;
+    writeStorage(PROGRESS_KEY, progress);
+    if (spreadIndex === spreads.length - 1) {
+      const read = readStorage(READ_STATUS_KEY, []);
+      if (!read.includes(currentMagazine.id)) writeStorage(READ_STATUS_KEY, [...read, currentMagazine.id]);
+    }
+    updateReadStatusButton();
   }
 
   function renderSpread() {
@@ -505,6 +606,48 @@
   zonePrev.addEventListener("click", () => turn(-1));
   zoneNext.addEventListener("click", () => turn(1));
   backBtn.addEventListener("click", closeMagazine);
+  bookmarkBtn.addEventListener("click", () => {
+    const bookmarks = readStorage(BOOKMARKS_KEY, []);
+    const next = bookmarks.includes(currentMagazine.id)
+      ? bookmarks.filter((id) => id !== currentMagazine.id)
+      : [...bookmarks, currentMagazine.id];
+    writeStorage(BOOKMARKS_KEY, next);
+    updateBookmarkButton();
+    renderShelf();
+  });
+  shareBtn.addEventListener("click", async () => {
+    const url = new URL(`#${currentMagazine.id}`, window.location.href).href;
+    let copied = false;
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(url);
+        copied = true;
+      } catch {
+        copied = false;
+      }
+    }
+    if (!copied) {
+      const input = document.createElement("input");
+      input.value = url;
+      document.body.appendChild(input);
+      input.select();
+      copied = document.execCommand("copy");
+      input.remove();
+    }
+    shareBtn.textContent = copied ? "Link copied" : "Copy failed";
+    window.setTimeout(() => { shareBtn.textContent = "Copy link"; }, 1600);
+  });
+  readStatusBtn.addEventListener("click", () => {
+    const progress = readStorage(PROGRESS_KEY, {});
+    delete progress[currentMagazine.id];
+    writeStorage(PROGRESS_KEY, progress);
+    const read = readStorage(READ_STATUS_KEY, []).filter((id) => id !== currentMagazine.id);
+    writeStorage(READ_STATUS_KEY, read);
+    spreadIndex = 0;
+    renderSpread();
+    renderShelf();
+    updateReadStatusButton();
+  });
 
   topicDropdownToggle.addEventListener("click", toggleTopicDropdown);
 
@@ -516,6 +659,16 @@
     searchQuery = searchInput.value;
     renderShelf();
   });
+  sortSelect.addEventListener("change", () => {
+    sortOrder = sortSelect.value;
+    renderShelf();
+  });
+  bookmarksFilter.addEventListener("click", () => {
+    showBookmarkedOnly = !showBookmarkedOnly;
+    bookmarksFilter.setAttribute("aria-pressed", String(showBookmarkedOnly));
+    bookmarksFilter.textContent = showBookmarkedOnly ? "★ Bookmarked" : "☆ Bookmarked";
+    renderShelf();
+  });
 
   document.addEventListener("keydown", (e) => {
     if (readerView.hidden) return;
@@ -523,6 +676,15 @@
     if (e.key === "ArrowLeft") turn(-1);
     if (e.key === "Escape") closeMagazine();
   });
+  book.addEventListener("touchstart", (e) => {
+    touchStartX = e.changedTouches[0].clientX;
+  }, { passive: true });
+  book.addEventListener("touchend", (e) => {
+    if (touchStartX === null) return;
+    const distance = e.changedTouches[0].clientX - touchStartX;
+    touchStartX = null;
+    if (Math.abs(distance) >= 50) turn(distance < 0 ? 1 : -1);
+  }, { passive: true });
 
   /* ---------- shelf heading ---------- */
 

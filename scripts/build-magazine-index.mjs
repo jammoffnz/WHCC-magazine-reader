@@ -69,6 +69,7 @@ async function scanMagazine(folderName) {
   }
 
   return {
+    ...meta,
     id: folderName,
     title: meta.title || titleCase(folderName),
     issue: meta.issue || "",

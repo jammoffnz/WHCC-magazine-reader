@@ -75,6 +75,7 @@ def scan_magazine(folder_name):
         topics.add(str(t).lower())
 
     return {
+        **meta,
         "id": folder_name,
         "title": meta.get("title") or title_case(folder_name),
         "issue": meta.get("issue") or "",
