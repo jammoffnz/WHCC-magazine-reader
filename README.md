@@ -17,7 +17,8 @@ python3 serve.py
 
 Then open `http://localhost:8000` in your browser. That's it — no
 extra setup, no other tools required (just Python 3, which almost
-every machine already has).
+every machine already has). The original visual theme is at `/index.html`;
+the retro 2008–2011 editorial theme is at `/retro.html`.
 
 **If something looks wrong**, you can check exactly what the app
 sees by opening `http://localhost:8000/api/magazines.json` directly
@@ -49,9 +50,11 @@ Git-connected deployment for this automatic workflow.
 
 ```
 magazine-reader/
-├── index.html              shelf view + reader view (one page app)
+├── index.html              original shelf + reader view
+├── retro.html              retro editorial shelf + reader view
 ├── serve.py                 local dev server + magazine auto-scanner
-├── css/style.css            all styling
+├── css/style.css            original styling
+├── css/retro.css            retro editorial styling
 ├── js/
 │   ├── magazines.js          manual overrides / fallback (usually empty)
 │   └── app.js                  reader logic

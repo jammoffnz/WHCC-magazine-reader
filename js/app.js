@@ -29,6 +29,8 @@
   const searchInput = document.getElementById("search-input");
   const sortSelect = document.getElementById("sort-select");
   const bookmarksFilter = document.getElementById("bookmarks-filter");
+  const shelfSecondaryControls = document.querySelector(".shelf-secondary-controls");
+  const isRetroPage = document.body.classList.contains("retro-page");
   const themeToggle = document.getElementById("theme-toggle");
   const readerView = document.getElementById("reader-view");
   const backBtn = document.getElementById("back-btn");
@@ -266,6 +268,9 @@
       columns.appendChild(column);
     });
     topicDropdownPanel.appendChild(columns);
+    if (isRetroPage && shelfSecondaryControls) {
+      topicDropdownPanel.appendChild(shelfSecondaryControls);
+    }
 
     const activeCount = Object.values(activeFilters).filter((value) => value !== "all").length;
     topicDropdownLabel.textContent = activeCount ? `Filters (${activeCount})` : "Filter zines";
@@ -284,12 +289,48 @@
     }
   }
 
+  function positionTopicDropdown() {
+    if (isRetroPage) return;
+    if (topicDropdownPanel.hidden) return;
+    const buttonRect = topicDropdownToggle.getBoundingClientRect();
+    topicDropdownPanel.style.left = `${buttonRect.left + buttonRect.width / 2}px`;
+  }
+
+  function updateRetroHeaderOffset() {
+    if (!isRetroPage) return;
+    const header = document.querySelector(".shelf-header");
+    const controls = document.querySelector(".shelf-controls");
+    if (header) {
+      const headerHeight = header.getBoundingClientRect().height;
+      const controlsHeight = controls ? controls.getBoundingClientRect().height : 0;
+      document.documentElement.style.setProperty("--retro-header-height", `${headerHeight}px`);
+      document.documentElement.style.setProperty("--retro-controls-height", `${controlsHeight}px`);
+      document.documentElement.style.setProperty(
+        "--retro-shell-height",
+        `${headerHeight + controlsHeight}px`
+      );
+    }
+  }
+
+  function updateRetroReaderOffset() {
+    if (!isRetroPage || readerView.hidden) return;
+    const header = readerView.querySelector(".reader-header");
+    if (header) {
+      document.documentElement.style.setProperty(
+        "--retro-reader-header-height",
+        `${header.getBoundingClientRect().height}px`
+      );
+    }
+  }
+
   function openTopicDropdown() {
     topicDropdownPanel.hidden = false;
+    positionTopicDropdown();
     topicDropdownToggle.setAttribute("aria-expanded", "true");
   }
   function closeTopicDropdown() {
     topicDropdownPanel.hidden = true;
+    topicDropdownPanel.style.left = "";
     topicDropdownToggle.setAttribute("aria-expanded", "false");
   }
   function toggleTopicDropdown() {
@@ -312,6 +353,8 @@
       return matchesFilters && matchesSearch && (!showBookmarkedOnly || isBookmarked(m.id));
     });
     visible.sort((a, b) => {
+      const bookmarkDifference = Number(isBookmarked(b.id)) - Number(isBookmarked(a.id));
+      if (bookmarkDifference !== 0) return bookmarkDifference;
       const readDifference = Number(isRead(a.id)) - Number(isRead(b.id));
       if (readDifference !== 0) return readDifference;
       if (sortOrder === "alphabetical") return a.title.localeCompare(b.title);
@@ -424,6 +467,7 @@
 
     shelfView.hidden = true;
     readerView.hidden = false;
+    updateRetroReaderOffset();
   }
 
   function closeMagazine() {
@@ -566,6 +610,12 @@
     if (nextIndex < 0 || nextIndex >= spreads.length) return;
 
     isAnimating = true;
+    if (isRetroPage) {
+      spreadIndex = nextIndex;
+      renderSpread();
+      isAnimating = false;
+      return;
+    }
     await preloadSpread(nextIndex);
     if (canUsePageTurn(direction, nextIndex)) {
       // Put the sheet in place first so staging the destination page cannot
@@ -650,6 +700,11 @@
   });
 
   topicDropdownToggle.addEventListener("click", toggleTopicDropdown);
+  window.addEventListener("scroll", positionTopicDropdown, { passive: true });
+  window.addEventListener("resize", positionTopicDropdown);
+  window.addEventListener("resize", updateRetroHeaderOffset);
+  window.addEventListener("resize", updateRetroReaderOffset);
+  updateRetroHeaderOffset();
 
   document.addEventListener("click", (e) => {
     if (!topicDropdown.contains(e.target)) closeTopicDropdown();
@@ -739,6 +794,7 @@
 
     LIBRARY = await buildLibrary();
     renderTopicFilters();
+    updateRetroHeaderOffset();
     renderShelf();
 
     // Deep link support: opening index.html#some-id jumps straight

@@ -104,6 +104,7 @@ img{ display:block; max-width:100%; }
   display: flex;
   align-items: center;
   justify-content: center;
+  text-decoration: none;
 }
 .site-logo-mark{
   font-family: var(--display);
@@ -202,6 +203,7 @@ img{ display:block; max-width:100%; }
 
 .topic-dropdown{
   position: relative;
+  display: inline-block;
 }
 .topic-dropdown-toggle{
   display: flex;
@@ -233,6 +235,7 @@ img{ display:block; max-width:100%; }
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
+  margin: 0;
   width: min(680px, calc(100vw - 2rem));
   max-height: min(50vh, 420px);
   overflow: hidden;
