@@ -101,6 +101,19 @@ const MAGAZINE_LIBRARY = [
     purpose: "article"
   },
   {
+    id: "Brutalism",
+    title: "Brutalism",
+    issue: "Issue 01 — Se Galini",
+    dateAdded: "2026-09-21",
+    folder: "magazines/fw/pages",
+    pageCount: 9,
+    extension: "png",
+    topics: ["design"],
+    publisher: "Student",
+    ageRange: "all ages",
+    purpose: "Article"
+  },
+  {
     id: "how-2",
     title: "NEED HELP NOW",
     issue: "Issue 1/1",
