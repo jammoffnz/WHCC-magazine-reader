@@ -14,6 +14,17 @@
   <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle light/dark theme">
     <span class="theme-toggle-icon" aria-hidden="true">☀</span>
   </button>
+  <button id="media-toggle" class="media-toggle" type="button" aria-expanded="false" aria-controls="media-panel" aria-label="Open music player">♫</button>
+  <aside id="media-panel" class="media-panel" hidden>
+    <strong>Music player</strong>
+    <button id="music-play" type="button">Play music</button>
+    <div class="music-controls"><button id="music-prev" type="button" aria-label="Previous song">|&lt;</button><button id="music-next" type="button">Skip song</button></div>
+    <input id="music-progress" type="range" min="0" max="100" value="0" step="0.1" aria-label="Music progress">
+    <span id="music-time" class="music-status">0:00 / 0:00</span>
+    <span id="music-status" class="music-status" role="status">Built-in loop ready</span>
+    <audio id="music-audio" preload="metadata"></audio>
+    <label><input id="sound-toggle" type="checkbox" checked> Sound effects</label>
+  </aside>
 
   <!-- ============ SHELF VIEW ============ -->
   <main id="shelf-view" class="view">
@@ -67,6 +78,7 @@
       <div class="reader-actions">
         <button id="bookmark-btn" class="text-btn" type="button" aria-pressed="false">☆ Bookmark</button>
         <button id="share-btn" class="text-btn" type="button">Copy link</button>
+        <button id="fullscreen-btn" class="text-btn" type="button" aria-pressed="false">Fullscreen</button>
         <div class="reader-progress-wrap">
           <div id="reader-progress" class="reader-progress"></div>
           <div class="reader-progress-track" aria-hidden="true"><div id="reader-progress-bar"></div></div>

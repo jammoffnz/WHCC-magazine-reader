@@ -156,6 +156,26 @@ body{
   z-index: 2;
 }
 .reader-header{ background: linear-gradient(#3f739c, #26547a); border-bottom: 4px solid var(--accent); color: #ffffff; }
+.retro-page .media-toggle{
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border-radius: 3px;
+  background: linear-gradient(#ffffff, #d9dee3);
+  box-shadow: 0 1px 2px rgba(0,0,0,.25);
+}
+.retro-page .media-panel{
+  border-radius: 3px;
+  border-color: #52738d;
+  box-shadow: 0 8px 20px rgba(28,45,61,.28);
+}
+.retro-page .media-panel input[type="checkbox"]{ accent-color: var(--accent); }
+.retro-page .reader-actions{ gap: .3rem; }
+.retro-page .reader-actions .text-btn{
+  padding: .38rem .55rem;
+  font-size: .6rem;
+  letter-spacing: .04em;
+}
 .reader-title-issue,
 .reader-progress{ color: #dcebf5; }
 .text-btn{ border-radius: 3px; color: #ffffff; background: rgba(0,0,0,.12); border-color: rgba(255,255,255,.45); }

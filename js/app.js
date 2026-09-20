@@ -32,6 +32,16 @@
   const shelfSecondaryControls = document.querySelector(".shelf-secondary-controls");
   const isRetroPage = document.body.classList.contains("retro-page");
   const themeToggle = document.getElementById("theme-toggle");
+  const mediaToggle = document.getElementById("media-toggle");
+  const mediaPanel = document.getElementById("media-panel");
+  const musicAudio = document.getElementById("music-audio");
+  const musicPlay = document.getElementById("music-play");
+  const musicPrev = document.getElementById("music-prev");
+  const musicNext = document.getElementById("music-next");
+  const musicProgress = document.getElementById("music-progress");
+  const musicTime = document.getElementById("music-time");
+  const musicStatus = document.getElementById("music-status");
+  const soundToggle = document.getElementById("sound-toggle");
   const readerView = document.getElementById("reader-view");
   const backBtn = document.getElementById("back-btn");
   const titleMain = document.getElementById("reader-title-main");
@@ -40,6 +50,7 @@
   const progressBar = document.getElementById("reader-progress-bar");
   const bookmarkBtn = document.getElementById("bookmark-btn");
   const shareBtn = document.getElementById("share-btn");
+  const fullscreenBtn = document.getElementById("fullscreen-btn");
   const readStatusBtn = document.getElementById("read-status-btn");
   const book = document.getElementById("book");
   const spreadEl = document.getElementById("spread");
@@ -63,6 +74,11 @@
   let isAnimating = false;
   let touchStartX = null;
   const preloadedPages = new Map();
+  let audioContext = null;
+  let musicTimer = null;
+  let musicGain = null;
+  let musicTracks = [];
+  let musicTrackIndex = 0;
 
   const TURN_MS = 720; // must match .turn-sheet transition duration in style.css
   const COVER_TURN_MS = 520; // must match .spread cover-change animation duration in style.css
@@ -82,6 +98,188 @@
 
   function writeStorage(key, value) {
     localStorage.setItem(key, JSON.stringify(value));
+  }
+
+  function getAudioContext() {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return null;
+    audioContext ||= new AudioContextClass();
+    return audioContext;
+  }
+
+  function scheduleUiSound(context, kind) {
+    const now = context.currentTime;
+    const tone = (frequency, duration, volume, type = "sine", start = now) => {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(frequency, start);
+      gain.gain.setValueAtTime(volume, start);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+      oscillator.connect(gain).connect(context.destination);
+      oscillator.start(start);
+      oscillator.stop(start + duration);
+    };
+    const noise = (duration, volume, filterFrequency, start = now) => {
+      const buffer = context.createBuffer(1, Math.ceil(context.sampleRate * duration), context.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i += 1) data[i] = Math.random() * 2 - 1;
+      const source = context.createBufferSource();
+      const filter = context.createBiquadFilter();
+      const gain = context.createGain();
+      source.buffer = buffer;
+      filter.type = "bandpass";
+      filter.frequency.value = filterFrequency;
+      filter.Q.value = 0.8;
+      gain.gain.setValueAtTime(volume, start);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+      source.connect(filter).connect(gain).connect(context.destination);
+      source.start(start);
+      source.stop(start + duration);
+    };
+
+    if (kind === "page-flip") {
+      const duration = 0.42;
+      const buffer = context.createBuffer(1, Math.ceil(context.sampleRate * duration), context.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i += 1) {
+        const progress = i / data.length;
+        data[i] = (Math.random() * 2 - 1) * Math.sin(progress * Math.PI);
+      }
+      const source = context.createBufferSource();
+      const filter = context.createBiquadFilter();
+      const gain = context.createGain();
+      source.buffer = buffer;
+      filter.type = "lowpass";
+      filter.frequency.setValueAtTime(650, now);
+      filter.frequency.exponentialRampToValueAtTime(2400, now + duration * 0.55);
+      filter.frequency.exponentialRampToValueAtTime(900, now + duration);
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.exponentialRampToValueAtTime(0.14, now + duration * 0.2);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+      source.connect(filter).connect(gain).connect(context.destination);
+      source.start(now);
+      source.stop(now + duration);
+      tone(210, 0.3, 0.035, "sine");
+      return;
+    }
+    if (kind === "zine-select") {
+      tone(520, 0.1, 0.1, "sine");
+      tone(780, 0.15, 0.08, "sine", now + 0.06);
+      return;
+    }
+    noise(0.045, 0.28, 700);
+    tone(125, 0.07, 0.14, "triangle");
+  }
+
+  function playUiSound(kind = "button") {
+    if (!soundToggle.checked) return;
+    const context = getAudioContext();
+    if (!context) return;
+    if (context.state === "suspended") {
+      context.resume()
+        .then(() => scheduleUiSound(context, kind))
+        .catch((error) => console.warn("Unable to resume sound effects:", error));
+      return;
+    }
+    scheduleUiSound(context, kind);
+  }
+
+  function updateFullscreenButton() {
+    const active = document.fullscreenElement === readerView;
+    fullscreenBtn.textContent = active ? "Exit fullscreen" : "Fullscreen";
+    fullscreenBtn.setAttribute("aria-pressed", String(active));
+  }
+
+  function positionMediaPanel() {
+    if (mediaPanel.hidden) return;
+    const buttonRect = mediaToggle.getBoundingClientRect();
+    mediaPanel.style.top = `${buttonRect.bottom + 0.5 * parseFloat(getComputedStyle(document.documentElement).fontSize)}px`;
+    mediaPanel.style.right = `${Math.max(1, window.innerWidth - buttonRect.right)}px`;
+  }
+
+  function playMusicLoop() {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    audioContext ||= new AudioContextClass();
+    if (audioContext.state === "suspended") audioContext.resume();
+    musicGain = audioContext.createGain();
+    musicGain.gain.value = 0.055;
+    musicGain.connect(audioContext.destination);
+    const notes = [
+      [261.63, 329.63, 392.0, 493.88],
+      [220.0, 277.18, 329.63, 440.0],
+      [174.61, 220.0, 261.63, 349.23],
+      [196.0, 246.94, 293.66, 392.0]
+    ];
+    let step = 0;
+    const playChord = () => {
+      const start = audioContext.currentTime;
+      notes[step % notes.length].forEach((frequency, index) => {
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        oscillator.type = "triangle";
+        oscillator.frequency.value = frequency;
+        gain.gain.setValueAtTime(0.001, start);
+        gain.gain.linearRampToValueAtTime(0.32 / (index + 2), start + 0.15);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + 2.8);
+        oscillator.connect(gain).connect(musicGain);
+        oscillator.start(start);
+        oscillator.stop(start + 3);
+      });
+      step += 1;
+    };
+    playChord();
+    musicTimer = window.setInterval(playChord, 2800);
+  }
+
+  function stopMusicLoop() {
+    if (musicTimer) window.clearInterval(musicTimer);
+    musicTimer = null;
+    if (musicGain) musicGain.disconnect();
+    musicGain = null;
+  }
+
+  function formatTime(seconds) {
+    if (!Number.isFinite(seconds)) return "0:00";
+    return `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
+  }
+
+  async function loadMusicTracks() {
+    try {
+      const response = await fetch("api/music.json", { cache: "no-store" });
+      if (!response.ok) throw new Error(`Music request failed: ${response.status}`);
+      musicTracks = await response.json();
+    } catch {
+      try {
+        const response = await fetch("music/music.json", { cache: "no-store" });
+        if (!response.ok) throw new Error(`Music manifest failed: ${response.status}`);
+        musicTracks = await response.json();
+      } catch {
+        musicTracks = [];
+      }
+    }
+    if (musicTracks.length) {
+      musicTrackIndex = 0;
+      musicAudio.src = musicTracks[0].src;
+      musicStatus.textContent = musicTracks[0].title;
+    }
+  }
+
+  function setMusicTrack(index, shouldPlay = false) {
+    if (!musicTracks.length) return false;
+    musicTrackIndex = (index + musicTracks.length) % musicTracks.length;
+    const track = musicTracks[musicTrackIndex];
+    musicAudio.src = track.src;
+    musicStatus.textContent = track.title;
+    musicProgress.value = "0";
+    if (shouldPlay) {
+      musicAudio.play().catch(() => {
+        musicStatus.textContent = "Unable to play this track";
+      });
+      musicPlay.textContent = "Stop music";
+    }
+    return true;
   }
 
   function isBookmarked(id) {
@@ -268,7 +466,7 @@
       columns.appendChild(column);
     });
     topicDropdownPanel.appendChild(columns);
-    if (isRetroPage && shelfSecondaryControls) {
+    if (shelfSecondaryControls) {
       topicDropdownPanel.appendChild(shelfSecondaryControls);
     }
 
@@ -384,7 +582,10 @@
       // Random tilt each render, so covers don't fall into a visible pattern.
       const tilt = (Math.random() * 5 - 2.5).toFixed(2);
       card.style.setProperty("--tilt", `${tilt}deg`);
-      card.addEventListener("click", () => openMagazine(mag.id));
+      card.addEventListener("click", () => {
+        playUiSound("zine-select");
+        openMagazine(mag.id);
+      });
 
       const thumb = document.createElement("div");
       thumb.className = "cover-thumb";
@@ -613,10 +814,12 @@
     if (isRetroPage) {
       spreadIndex = nextIndex;
       renderSpread();
+      playUiSound("page-flip");
       isAnimating = false;
       return;
     }
     await preloadSpread(nextIndex);
+    playUiSound("page-flip");
     if (canUsePageTurn(direction, nextIndex)) {
       // Put the sheet in place first so staging the destination page cannot
       // flash over the page currently being read.
@@ -653,6 +856,11 @@
 
   /* ---------- events ---------- */
 
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    const button = target instanceof Element ? target.closest("button") : null;
+    if (button && !button.classList.contains("cover-card")) playUiSound("button");
+  }, true);
   zonePrev.addEventListener("click", () => turn(-1));
   zoneNext.addEventListener("click", () => turn(1));
   backBtn.addEventListener("click", closeMagazine);
@@ -786,11 +994,82 @@
     localStorage.setItem(THEME_KEY, next);
   });
 
+  mediaToggle.addEventListener("click", () => {
+    mediaPanel.hidden = !mediaPanel.hidden;
+    mediaToggle.setAttribute("aria-expanded", String(!mediaPanel.hidden));
+    positionMediaPanel();
+  });
+  musicPlay.addEventListener("click", () => {
+    if (!musicAudio.paused) {
+      musicAudio.pause();
+      musicPlay.textContent = "Play music";
+      musicStatus.textContent = "Paused";
+      return;
+    }
+    if (musicAudio.src && musicAudio.paused && musicAudio.readyState > 0) {
+      musicAudio.play().then(() => {
+        musicPlay.textContent = "Stop music";
+      }).catch(() => {
+        musicStatus.textContent = "Unable to play this track";
+      });
+    } else if (musicTimer) {
+      stopMusicLoop();
+      musicPlay.textContent = "Play music";
+      musicStatus.textContent = "Built-in loop paused";
+    } else {
+      if (musicTracks.length) {
+        musicAudio.play().then(() => {
+          musicPlay.textContent = "Stop music";
+          musicStatus.textContent = musicTracks[musicTrackIndex].title;
+        }).catch(() => {
+          musicStatus.textContent = "Unable to play this track";
+        });
+      } else {
+        playMusicLoop();
+        musicPlay.textContent = "Stop music";
+        musicStatus.textContent = "Playing built-in loop";
+      }
+    }
+  });
+  musicNext.addEventListener("click", () => {
+    if (setMusicTrack(musicTrackIndex + 1, true)) return;
+    stopMusicLoop();
+    playMusicLoop();
+    musicPlay.textContent = "Stop music";
+    musicStatus.textContent = "Playing built-in loop";
+  });
+  musicPrev.addEventListener("click", () => {
+    if (setMusicTrack(musicTrackIndex - 1, true)) return;
+    musicStatus.textContent = "No music files found";
+  });
+  musicAudio.addEventListener("timeupdate", () => {
+    musicProgress.value = musicAudio.duration ? String((musicAudio.currentTime / musicAudio.duration) * 100) : "0";
+    musicTime.textContent = `${formatTime(musicAudio.currentTime)} / ${formatTime(musicAudio.duration)}`;
+  });
+  musicAudio.addEventListener("ended", () => {
+    if (musicTracks.length) setMusicTrack(musicTrackIndex + 1, true);
+  });
+  musicProgress.addEventListener("input", () => {
+    if (musicAudio.duration) musicAudio.currentTime = (Number(musicProgress.value) / 100) * musicAudio.duration;
+  });
+  fullscreenBtn.addEventListener("click", async () => {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+    } else {
+      await readerView.requestFullscreen();
+    }
+    updateFullscreenButton();
+  });
+  document.addEventListener("fullscreenchange", updateFullscreenButton);
+  window.addEventListener("scroll", positionMediaPanel, { passive: true });
+  window.addEventListener("resize", positionMediaPanel);
+
   /* ---------- init ---------- */
 
   (async function init() {
     initTheme();
     setRandomHeading();
+    await loadMusicTracks();
 
     LIBRARY = await buildLibrary();
     renderTopicFilters();
