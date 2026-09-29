@@ -52,13 +52,13 @@
  * ------------------------------------------------------------
  */
 const PUBLISHER_WEBSITES = {
-  "Moonbeam Press":     "https://moonbeampress.example.com",
-  "Harbour House":      "https://harbourhouse.example.com",
-  "Paper Kite Collective": "https://paperkitecollective.example.com",
-  "North Star Studio":  "https://northstarstudio.example.com",
-  "Cedar Street Zines": "https://cedarstreet.example.com",
-  "Lantern Room":       "https://lanternroom.example.com",
-  "WHZ group":          "https://whz.example.com",
+  "Moonbeam Press":     "",
+  "Harbour House":      "",
+  "Paper Kite Collective": "",
+  "North Star Studio":  "",
+  "Cedar Street Zines": "",
+  "Lantern Room":       "",
+  "WHZ group":          "",
   "student":            "",
   "lunch group":        "",
   "organisation":       "",
@@ -101,7 +101,8 @@ const MAGAZINE_FILTERS = [
       "how-to",
       "photo essay",
       "personal essay",
-      "recipes"
+      "recipes",
+      "update log"
     ]
   }
 ];
@@ -120,6 +121,20 @@ const MAGAZINE_LIBRARY = [
     publisher: "student",
     ageRange: "teen",
     purpose: "photo album"
+  },
+  {
+    id: "update-0-8-0",
+    title: "Update 0.8.0",
+    issue: "Issue 0.8.0 — Beta Release",
+    dateAdded: "2026-09-29",
+    editorsPick: false,
+    folder: "magazines/update-0-8-0/pages",
+    pageCount: 3,
+    extension: "png",
+    topics: ["update log"],
+    publisher: "WHZ group",
+    ageRange: "all ages",
+    purpose: "update log"
   },
   {
     id: "this-isnt-ai",
