@@ -46,6 +46,7 @@
   const backBtn = document.getElementById("back-btn");
   const titleMain = document.getElementById("reader-title-main");
   const titleIssue = document.getElementById("reader-title-issue");
+  const readerPublisher = document.getElementById("reader-publisher");
   const progressEl = document.getElementById("reader-progress");
   const progressBar = document.getElementById("reader-progress-bar");
   const bookmarkBtn = document.getElementById("bookmark-btn");
@@ -62,6 +63,8 @@
   const zonePrev = document.getElementById("zone-prev");
   const zoneNext = document.getElementById("zone-next");
   const dotsEl = document.getElementById("dots");
+  const mobileNotice = document.getElementById("mobile-notice");
+  const mobileNoticeDismiss = document.getElementById("mobile-notice-dismiss");
 
   let LIBRARY = [];
   let activeFilters;
@@ -357,6 +360,12 @@
     return /^\d+$/.test(slug) ? `Topic ${slug}` : titleCase(slug);
   }
 
+  function publisherUrl(name) {
+    return typeof PUBLISHER_WEBSITES !== "undefined" && PUBLISHER_WEBSITES[name]
+      ? PUBLISHER_WEBSITES[name]
+      : "";
+  }
+
   function isNewMagazine(mag) {
     if (!mag.dateAdded) return false;
 
@@ -365,6 +374,12 @@
 
     const age = Date.now() - addedAt.getTime();
     return age >= 0 && age <= NEW_MAGAZINE_WINDOW_MS;
+  }
+
+  // Pinned zines are promoted to the top of the shelf, directly beneath the
+  // ad. Ads are excluded — they already sort first and carry no badges.
+  function isPinned(mag) {
+    return mag.pinned === true && !mag.adUrl;
   }
 
   // Build the sequence of spreads for a magazine: page 1 is a standalone
@@ -551,6 +566,13 @@
       return matchesFilters && matchesSearch && (!showBookmarkedOnly || isBookmarked(m.id));
     });
     visible.sort((a, b) => {
+      // Sponsored cards sit at the very top, then pinned zines immediately
+      // beneath them — pinning is how something gets promoted to the front
+      // of the shelf. Bookmarked / unread / sort-order rules follow as before.
+      const adDifference = Number(!!b.adUrl) - Number(!!a.adUrl);
+      if (adDifference !== 0) return adDifference;
+      const pinnedDifference = Number(isPinned(b)) - Number(isPinned(a));
+      if (pinnedDifference !== 0) return pinnedDifference;
       const bookmarkDifference = Number(isBookmarked(b.id)) - Number(isBookmarked(a.id));
       if (bookmarkDifference !== 0) return bookmarkDifference;
       const readDifference = Number(isRead(a.id)) - Number(isRead(b.id));
@@ -579,12 +601,21 @@
       card.type = "button";
       card.className = "cover-card";
       card.classList.toggle("is-read", isRead(mag.id));
-      // Random tilt each render, so covers don't fall into a visible pattern.
-      const tilt = (Math.random() * 5 - 2.5).toFixed(2);
-      card.style.setProperty("--tilt", `${tilt}deg`);
+      // Ads are always straight — no random tilt
+      if (mag.adUrl) {
+        card.classList.add("is-ad");
+      } else {
+        // Random tilt each render, so covers don't fall into a visible pattern.
+        const tilt = (Math.random() * 5 - 2.5).toFixed(2);
+        card.style.setProperty("--tilt", `${tilt}deg`);
+      }
       card.addEventListener("click", () => {
         playUiSound("zine-select");
-        openMagazine(mag.id);
+        if (mag.adUrl) {
+          window.open(mag.adUrl, "_blank", "noopener noreferrer");
+        } else {
+          openMagazine(mag.id);
+        }
       });
 
       const thumb = document.createElement("div");
@@ -603,43 +634,77 @@
       thumb.appendChild(img);
       const badges = document.createElement("div");
       badges.className = "cover-badges";
-      if (mag.editorsPick === true) {
+      if (isPinned(mag)) {
+       const badge = document.createElement("span");
+       badge.className = "pinned-badge";
+       badge.textContent = "Pinned";
+       badge.setAttribute("aria-label", "Pinned to the top of the shelf");
+       badges.appendChild(badge);
+      }
+      if (mag.editorsPick === true && !mag.adUrl) {
        const badge = document.createElement("span");
        badge.className = "editors-pick-badge";
        badge.textContent = "Editor's pick";
        badge.setAttribute("aria-label", "Editor's pick");
        badges.appendChild(badge);
       }
-      if (isNewMagazine(mag)) {
+      if (isNewMagazine(mag) && !mag.adUrl) {
        const badge = document.createElement("span");
        badge.className = "new-badge";
        badge.textContent = "New";
        badge.setAttribute("aria-label", "Published within the past 5 days");
        badges.appendChild(badge);
       }
-      if (badges.childElementCount) thumb.appendChild(badges);
+      // Tags are appended above the cover (see the card appends below) rather
+      // than over it, so a badge never sits on top of the artwork or a
+      // masthead logo.
 
       const caption = document.createElement("div");
       caption.className = "cover-caption";
-      caption.textContent = mag.title;
-      const small = document.createElement("small");
-      small.textContent = mag.issue
-        ? `${mag.issue} · ${mag.pageCount} pages`
-        : `${mag.pageCount} pages`;
-      caption.appendChild(small);
-      if (isBookmarked(mag.id)) {
-        const saved = document.createElement("small");
-        saved.className = "bookmark-label";
-        saved.textContent = "Bookmarked";
-        caption.appendChild(saved);
-      }
-      if (isRead(mag.id)) {
-        const read = document.createElement("small");
-        read.className = "read-label";
-        read.textContent = "Read";
-        caption.appendChild(read);
+      if (mag.adUrl) {
+       caption.textContent = "Check out " + (mag.publisher || "this site") + " here!";
+      } else {
+       caption.textContent = mag.title;
       }
 
+      // Publisher row — shown as a clickable link if we have a URL
+      if (mag.publisher) {
+        const pubLink = document.createElement("a");
+        pubLink.className = "cover-publisher";
+        pubLink.textContent = mag.publisher;
+        const url = publisherUrl(mag.publisher);
+        if (url) {
+          pubLink.href = url;
+          pubLink.target = "_blank";
+          pubLink.rel = "noopener noreferrer";
+          pubLink.title = `Visit ${mag.publisher} website`;
+        }
+        // Stop clicks on the publisher link from opening the magazine
+        pubLink.addEventListener("click", (e) => e.stopPropagation());
+        caption.appendChild(pubLink);
+      }
+
+      if (!mag.adUrl) {
+       const small = document.createElement("small");
+       small.textContent = mag.issue
+         ? `${mag.issue} · ${mag.pageCount} pages`
+         : `${mag.pageCount} pages`;
+       caption.appendChild(small);
+       if (isBookmarked(mag.id)) {
+         const saved = document.createElement("small");
+         saved.className = "bookmark-label";
+         saved.textContent = "Bookmarked";
+         caption.appendChild(saved);
+       }
+       if (isRead(mag.id)) {
+         const read = document.createElement("small");
+         read.className = "read-label";
+         read.textContent = "Read";
+         caption.appendChild(read);
+       }
+      }
+
+      card.appendChild(badges);
       card.appendChild(thumb);
       card.appendChild(caption);
       shelfGrid.appendChild(card);
@@ -652,6 +717,12 @@
     const mag = LIBRARY.find((m) => m.id === id);
     if (!mag) return;
 
+    // Ads don't open in the reader — go straight to the external URL
+    if (mag.adUrl) {
+      window.open(mag.adUrl, "_blank", "noopener noreferrer");
+      return;
+    }
+
     currentMagazine = mag;
     spreads = buildSpreads(mag.pageCount);
     const savedProgress = readStorage(PROGRESS_KEY, {})[id];
@@ -659,6 +730,17 @@
 
     titleMain.textContent = mag.title;
     titleIssue.textContent = mag.issue;
+    if (mag.publisher) {
+      const url = publisherUrl(mag.publisher);
+      if (url) {
+        readerPublisher.innerHTML = `<a href="${url.replace(/"/g, "&quot;")}" target="_blank" rel="noopener noreferrer" title="Visit ${mag.publisher} website">${mag.publisher}</a>`;
+      } else {
+        readerPublisher.textContent = mag.publisher;
+      }
+      readerPublisher.hidden = false;
+    } else {
+      readerPublisher.hidden = true;
+    }
     updateBookmarkButton();
     updateReadStatusButton();
     updateUrl(id);
@@ -1064,10 +1146,61 @@
   window.addEventListener("scroll", positionMediaPanel, { passive: true });
   window.addEventListener("resize", positionMediaPanel);
 
+  /* ---------- phone notice ---------- */
+
+  const MOBILE_NOTICE_KEY = "whz-mobile-notice-dismissed";
+
+  // The reader wants a wide, two-page spread and a mouse, so phones get a
+  // warning up front rather than silently loading half a layout.
+  //
+  // Three signals, in order of reliability:
+  //   1. userAgentData.mobile — Chrome/Edge/Android report phones accurately.
+  //      A `false` isn't final, though: devtools device-emulation keeps it
+  //      `false` while faking a phone's UA and touch input, so we keep going.
+  //   2. The UA string, for browsers that don't expose userAgentData above:
+  //      iPhone/iPod/Windows Phone/BlackBerry/Opera Mini/IEMobile, or Android
+  //      *phones* — an Android tablet's UA omits the "Mobile" token, and it
+  //      has the width for a spread, so it isn't warned.
+  //   3. A capability check — narrow screen *and* touch-only — as the last
+  //      resort, which is what actually catches emulated phones.
+  const PHONE_UA_TEST = /iPhone|iPod|Windows Phone|BlackBerry|Opera Mini|IEMobile|Android.+Mobile/i;
+
+  function isPhoneDevice() {
+    if (navigator.userAgentData && navigator.userAgentData.mobile === true) return true;
+    if (!navigator.userAgentData && PHONE_UA_TEST.test(navigator.userAgent)) return true;
+    return window.matchMedia("(max-width: 720px) and (pointer: coarse)").matches;
+  }
+
+  function dismissMobileNotice() {
+    if (mobileNotice.hidden) return;
+    // Remembered so the warning interrupts once, not on every visit — and so
+    // moving between index.html and retro.html doesn't show it twice.
+    try {
+      writeStorage(MOBILE_NOTICE_KEY, true);
+    } catch {
+      /* private browsing / storage disabled — just hide it for this load */
+    }
+    mobileNotice.hidden = true;
+    document.body.classList.remove("mobile-notice-open");
+  }
+
+  function initMobileNotice() {
+    if (!mobileNotice || !isPhoneDevice()) return;
+    if (readStorage(MOBILE_NOTICE_KEY, null) === true) return;
+    mobileNotice.hidden = false;
+    document.body.classList.add("mobile-notice-open");
+    mobileNoticeDismiss.addEventListener("click", dismissMobileNotice);
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") dismissMobileNotice();
+    });
+    mobileNoticeDismiss.focus();
+  }
+
   /* ---------- init ---------- */
 
   (async function init() {
     initTheme();
+    initMobileNotice();
     setRandomHeading();
     await loadMusicTracks();
 

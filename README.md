@@ -125,6 +125,29 @@ To mark a manually configured magazine as an Editor's Pick, add
 
 Set it to `false` (or remove it) to hide the badge.
 
+### Pinning a magazine to the top
+
+Add `pinned: true` to an entry in `js/magazines.js` and that magazine
+jumps to the front of the shelf, directly beneath the ad card, with a
+"Pinned" badge above its cover:
+
+```js
+{
+  id: "spring-03",
+  title: "Field Notes",
+  pinned: true
+}
+```
+
+Pinned zines hold that spot whatever the Sort dropdown is set to, so
+use it sparingly — it's for the one or two things you most want people
+to open. Remove the line (or set it to `false`) to unpin.
+
+Card tags — Pinned, Editor's pick and New — are drawn in a row *above*
+the cover, not laid over it, so a tag can never hide artwork or a
+masthead logo. That row keeps its height on cards with no tags at all,
+which is what keeps every cover on the shelf lined up.
+
 ### Topics and the shelf filter
 
 To make a magazine show up under a topic filter, add an empty file
@@ -196,6 +219,25 @@ a value to a magazine alone will not create a new filter option. The
 filter panel stays compact and each column scrolls independently when
 it has more options than will fit.
 
+## Publisher website links
+
+When you open a magazine, its publisher name appears on the shelf card
+(below the title) and in the reader header. If the publisher has a URL
+registered in `PUBLISHER_WEBSITES` (in `js/magazines.js`), the name
+becomes a clickable link that opens the publisher's website in a new tab.
+
+To add a website URL for a publisher:
+
+1. Open `js/magazines.js`.
+2. Find the `PUBLISHER_WEBSITES` map near the top of the file.
+3. Add or edit an entry: `"Publisher Name": "https://example.com"`
+4. Any magazine whose `publisher` field matches that name will now show
+   a clickable link — no need to touch individual magazine entries.
+
+Publishers without a URL in the map show their name as plain text
+(inactive). The map is also the single source of truth, so you can
+update a URL in one place and it changes everywhere.
+
 ## How auto-detection works
 
 `serve.py` is a small Python script (using only the standard
@@ -231,6 +273,39 @@ auto-detected one with the same `id`.
 This means a 1-page, 8-page, or 51-page magazine all "just work"
 without any per-magazine configuration beyond the page images
 themselves.
+
+## Phone warning
+
+The shelf and reader are laid out for a wide desktop screen (the pages open
+as a two-page spread), so phone visitors get a short popup on arrival
+explaining that things may look cramped and that some features — page
+turning, fullscreen, the music player — can misbehave. It appears on both
+`index.html` and `retro.html`, is dismissed with **Continue anyway** (or
+`Esc`), and the dismissal is remembered in `localStorage` under
+`whz-mobile-notice-dismissed`, so it only interrupts once per browser.
+
+Which devices count as a phone is decided in `js/app.js`
+(`isPhoneDevice()`), from three signals in order of reliability:
+
+1. `navigator.userAgentData.mobile` when the browser supports it (Chrome,
+   Edge, Android) — this is the most accurate signal, so a confirmed phone
+   never has to pass any other test.
+2. A user-agent test for iPhone, iPod, Android phones (Android UAs that also
+   contain the `Mobile` token), Windows Phone, BlackBerry, Opera Mini and
+   IEMobile, for browsers that don't expose the above (Safari on iOS, for
+   instance). iPads and Android tablets fall through to the test below rather
+   than being flagged here, since they usually have room for a spread.
+3. A `(max-width: 720px) and (pointer: coarse)` media query as the final
+   fallback — narrow screen *and* touch-only. Desktop windows never match it
+   (they report a fine pointer), so only genuinely phone-sized viewports are
+   flagged. This is also the test that catches a desktop browser's
+   device-emulation mode (devtools reports `mobile: false` even while
+   emulating a phone), which makes the notice easy to test without a real
+   handset.
+
+To hide the warning permanently for a device while testing, run
+`localStorage.removeItem("whz-mobile-notice-dismissed")` in the browser
+console, or delete just that key in the storage panel of devtools.
 
 ## Customizing the look
 

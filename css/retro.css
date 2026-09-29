@@ -118,6 +118,8 @@ body{
 .cover-card:focus-visible .cover-thumb{ box-shadow: 3px 5px 10px rgba(31,47,61,.3); }
 .cover-caption{ margin-top: .65rem; color: var(--ink); font-family: Arial, Helvetica, sans-serif; font-size: .95rem; font-weight: 700; }
 .cover-caption small{ font-family: "Courier New", monospace; font-size: .62rem; }
+.cover-publisher{ display: block; font-family: "Courier New", monospace; font-size: .62rem; margin-top: .2rem; color: var(--accent); text-decoration: none; }
+.cover-publisher:hover{ text-decoration: underline; }
 .shelf-footer{ padding: 1rem 2rem 2rem; background: #f1f3f5; border-top: 1px solid #c2c9cf; }
 .retro-page .topic-dropdown{
   position: relative;
@@ -199,6 +201,9 @@ body{
 }
 .reader-title-issue,
 .reader-progress{ color: #dcebf5; }
+.reader-publisher{ display: block; font-family: "Courier New", monospace; font-size: .6rem; margin-top: .15rem; }
+.reader-publisher a{ color: #dcebf5; text-decoration: none; }
+.reader-publisher a:hover{ text-decoration: underline; }
 .text-btn{ border-radius: 3px; color: #ffffff; background: rgba(0,0,0,.12); border-color: rgba(255,255,255,.45); }
 .book{ background: #cbd2d8; }
 .reader-footer{ background: #d8dde2; }
@@ -212,11 +217,34 @@ body{
   transform: none;
 }
 .new-badge,
-.editors-pick-badge{
+.editors-pick-badge,
+.pinned-badge{
   background: var(--accent);
   color: #ffffff;
   box-shadow: 0 1px 3px rgba(0,0,0,.2);
-  transform: none;
+}
+/* The other two badges already share the flat accent fill here, so pinned
+   is inverted instead — it stays the most prominent tag on the card. */
+.pinned-badge{
+  background: #ffffff;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  box-shadow: none;
+  font-weight: 700;
+}
+.cover-card.is-ad{
+  --tilt: 0deg !important;
+  transform: none !important;
+}
+.cover-card.is-ad .cover-thumb{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  padding: .5rem;
+}
+.cover-card.is-ad .cover-thumb img{
+  object-fit: contain;
 }
 .bookmark-label,
 .read-label{

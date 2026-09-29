@@ -26,6 +26,22 @@
     <label><input id="sound-toggle" type="checkbox" checked> Sound effects</label>
   </aside>
 
+  <!-- Shown to phone visitors only (see js/app.js) — the layout assumes a
+       wide screen, so this sets expectations before they hit the rough edges. -->
+  <div id="mobile-notice" class="mobile-notice" role="dialog" aria-modal="true" aria-labelledby="mobile-notice-title" hidden>
+    <div class="mobile-notice-card">
+      <p class="mobile-notice-eyebrow">Heads up</p>
+      <h2 id="mobile-notice-title" class="mobile-notice-title">This site isn't built for phones</h2>
+      <p class="mobile-notice-body">
+        WHZ is designed for a computer screen — the pages open as a wide
+        two-page spread and everything is sized for a mouse. On a phone you
+        can still look around, but expect cramped pages and a few bugs:
+        turning pages, fullscreen and the music player may misbehave.
+      </p>
+      <button id="mobile-notice-dismiss" class="mobile-notice-dismiss" type="button">Continue anyway</button>
+    </div>
+  </div>
+
   <!-- ============ SHELF VIEW ============ -->
   <main id="shelf-view" class="view">
     <header class="shelf-header">
@@ -74,6 +90,7 @@
       <div class="reader-title">
         <span id="reader-title-main"></span>
         <span id="reader-title-issue" class="reader-title-issue"></span>
+        <span id="reader-publisher" class="reader-publisher"></span>
       </div>
       <div class="reader-actions">
         <button id="bookmark-btn" class="text-btn" type="button" aria-pressed="false">☆ Bookmark</button>

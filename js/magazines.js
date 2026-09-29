@@ -27,9 +27,43 @@
  *      already here. Add `publisher`, `ageRange`, and `purpose`
  *      to make it appear in the three-column filter menu. Set
  *      `dateAdded` to the publication date to show the New badge
- *      for five days.
+ *      for five days, `editorsPick: true` for the Editor's pick
+ *      badge, and `pinned: true` to lift the magazine to the top
+ *      of the shelf, directly beneath the ad.
+ *
+ * LINK A PUBLISHER TO A WEBSITE:
+ *   The publisher name on shelf cards and in the reader becomes a
+ *   clickable link when you add that publisher's URL to the
+ *   `PUBLISHER_WEBSITES` map (see below). Add the exact publisher
+ *   name as a key and the website URL as its value — one entry
+ *   covers every magazine from that publisher.
  * ------------------------------------------------------------
  */
+
+/**
+ * PUBLISHER WEBSITES
+ * ------------------------------------------------------------
+ * When a publisher name appears in a magazine entry, the app
+ * will look it up here. If a URL is found, the publisher name
+ * becomes a clickable link on the shelf card and in the reader.
+ *
+ * Add any publisher that has a website here — you don't need
+ * to repeat the URL on every magazine entry.
+ * ------------------------------------------------------------
+ */
+const PUBLISHER_WEBSITES = {
+  "Moonbeam Press":     "https://moonbeampress.example.com",
+  "Harbour House":      "https://harbourhouse.example.com",
+  "Paper Kite Collective": "https://paperkitecollective.example.com",
+  "North Star Studio":  "https://northstarstudio.example.com",
+  "Cedar Street Zines": "https://cedarstreet.example.com",
+  "Lantern Room":       "https://lanternroom.example.com",
+  "WHZ group":          "https://whz.example.com",
+  "student":            "",
+  "lunch group":        "",
+  "organisation":       "",
+  "Elektor":            "https://www.elektormagazine.com/"
+};
 
 // Add new filter categories here. The key must match the field used on each
 // magazine entry or in its meta.json file.
@@ -47,7 +81,8 @@ const MAGAZINE_FILTERS = [
       "North Star Studio",
       "Cedar Street Zines",
       "Lantern Room",
-      "WHZ group"
+      "WHZ group",
+      "Elektor"
     ]
   },
   { key: "ageRange", label: "Age range", values: ["under 13", "teen", "parent", "all ages"] },
@@ -99,19 +134,6 @@ const MAGAZINE_LIBRARY = [
     publisher: "WHZ group",
     ageRange: "teen",
     purpose: "article"
-  },
-  {
-    id: "Brutalism",
-    title: "Brutalism",
-    issue: "Issue 01 — Se Galini",
-    dateAdded: "2026-09-21",
-    folder: "magazines/fw/pages",
-    pageCount: 9,
-    extension: "png",
-    topics: ["design"],
-    publisher: "Student",
-    ageRange: "all ages",
-    purpose: "Article"
   },
   {
     id: "how-2",
@@ -372,9 +394,67 @@ const MAGAZINE_LIBRARY = [
     publisher: "Paper Kite Collective",
     ageRange: "adult",
     purpose: "personal essay"
-  }
+  },
 
-  // Add more magazines here, following the same shape, e.g.:
+  {
+    id: "ad-elektor",
+    title: "Elektor Magazine",
+    issue: "Learn about electronics",
+    editorsPick: false,
+    folder: "magazines/ad-elektor/pages",
+    pageCount: 1,
+    extension: "svg",
+    topics: [],
+    publisher: "Elektor",
+    ageRange: "all ages",
+    purpose: "advertisement",
+    adUrl: "https://www.elektormagazine.com/"
+  },
+  {
+    id: "elektor-07-26",
+    title: "Elektor",
+    issue: "July 2026",
+    dateAdded: "2026-07-01",
+    editorsPick: true,
+    pinned: true,
+    folder: "magazines/elektor-07-26/pages",
+    pageCount: 116,
+    extension: "png",
+    topics: [],
+    publisher: "Elektor",
+    ageRange: "all ages",
+    purpose: "how-to"
+  },
+  {
+    id: "elektor-03-26",
+    title: "Elektor",
+    issue: "March 2026",
+    dateAdded: "2026-03-01",
+    editorsPick: false,
+    pinned: true,
+    folder: "magazines/elektor-03-26/pages",
+    pageCount: 116,
+    extension: "png",
+    topics: ["electronics"],
+    publisher: "Elektor",
+    ageRange: "all ages",
+    purpose: "how-to"
+  },
+  {
+    id: "elektor-05-26",
+    title: "Elektor",
+    issue: "May 2026",
+    dateAdded: "2026-05-01",
+    editorsPick: false,
+    pinned: true,
+    folder: "magazines/elektor-05-26/pages",
+    pageCount: 116,
+    extension: "png",
+    topics: ["electronics"],
+    publisher: "Elektor",
+    ageRange: "all ages",
+    purpose: "how-to"
+  },
   // {
   //   id: "winter-02",
   //   title: "Field Notes",

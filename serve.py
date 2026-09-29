@@ -30,6 +30,8 @@ from urllib.parse import urlparse
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 MAGAZINES_DIR = os.path.join(ROOT, "magazines")
+MUSIC_DIR = os.path.join(ROOT, "music")
+MUSIC_EXTENSIONS = {".mp3", ".ogg", ".wav", ".m4a", ".aac", ".flac"}
 PAGE_RE = re.compile(r"^page-(\d+)\.([a-zA-Z0-9]+)$", re.IGNORECASE)
 TOPIC_RE = re.compile(r"^topic-(.+)$", re.IGNORECASE)
 
@@ -101,6 +103,20 @@ def scan_all_magazines():
     return results
 
 
+def scan_music():
+    if not os.path.isdir(MUSIC_DIR):
+        return []
+    tracks = []
+    for name in sorted(os.listdir(MUSIC_DIR)):
+        path = os.path.join(MUSIC_DIR, name)
+        if os.path.isfile(path) and os.path.splitext(name)[1].lower() in MUSIC_EXTENSIONS:
+            tracks.append({
+                "title": os.path.splitext(name)[0].replace("-", " ").replace("_", " ").title(),
+                "src": f"music/{name}",
+            })
+    return tracks
+
+
 class Handler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         if urlparse(self.path).path == "/api/magazines.json":
@@ -112,12 +128,30 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
             return
+        if urlparse(self.path).path == "/api/music.json":
+            body = json.dumps(scan_music()).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+            return
         super().do_GET()
 
     def log_message(self, fmt, *args):
-        # quieter console output
-        if "/api/magazines.json" not in (args[0] if args else ""):
-            super().log_message(fmt, *args)
+        # quieter console output — these endpoints are polled on every page
+        # load, so their requests would otherwise flood the terminal
+        # HTTPStatus renders as "HTTPStatus.NOT_FOUND" on older Pythons —
+        # take its numeric value instead, which is what "%d" wanted anyway.
+        args = tuple(str(getattr(a, "value", a)) for a in args)
+        if "/api/magazines.json" in " ".join(args):
+            return
+        # The stdlib logs errors as ("code %d, message %s", HTTPStatus, msg).
+        # An HTTPStatus isn't a number, so re-format that %d as %s — otherwise
+        # the TypeError raised here escapes send_error(), and a plain missing
+        # file comes back as a dropped connection instead of a normal 404.
+        super().log_message(fmt.replace("%d", "%s"), *args)
 
 
 if __name__ == "__main__":
